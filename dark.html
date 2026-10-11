@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Pysblade's Image to ASCII Art Converter</title>
+    <style>
+body {
+    font-family: Arial, sans-serif;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #121212; /* Dark background */
+    --page-bg: #121212; /* page background, reused by the thumbnail borders */
+    accent-color: #6e6e6e; /* Grey accent: sliders, selects, file inputs */
+    color: #888; /* Light font color */
+}
+
+.container {
+    background-color: #1e1e1e; /* Slightly lighter dark background */
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5); /* Darker shadow */
+}
+
+#ascii-art {
+    font-family: monospace;
+    line-height: 1;
+    white-space: pre;
+    font-size: 8px;
+    background: #000000; /* Black background */
+    color: #00ff00; /* Light green text color */
+    padding: 0px;
+    border-radius: 4px;
+    overflow-x: hidden;
+    overflow-y: hidden;
+}
+
+.controls {
+    margin: 20px 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 15px;
+}
+
+.control-group {
+    background: #2b2b2b; /* Dark background for control groups */
+    padding: 15px;
+    border-radius: 4px;
+}
+
+.control-row {
+    display: flex;
+    align-items: center;
+    margin: 10px 0;
+}
+
+.control-row label {
+    width: 120px;
+    margin-right: 10px;
+    color: #888; /* Light color for labels */
+}
+
+button {
+    padding: 8px 16px;
+    background-color: #6e6e6e; /* Grey accent color */
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin: 5px;
+}
+
+button:hover {
+    background-color: #575757;
+}
+
+input[type="range"] {
+    flex: 1;
+    background-color: #333333; /* Dark background for slider */
+}
+
+.value-display {
+    width: 50px;
+    text-align: right;
+    margin-left: 10px;
+    color: #888;
+}
+
+#character-preview {
+    font-family: monospace;
+    background: #000000;
+    color: #00ff00;
+    padding: 10px;
+    margin-top: 10px;
+    border-radius: 4px;
+}
+/* --- Light / dark theme toggle --- */
+.file-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+}
+
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.theme-toggle input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.theme-toggle-track {
+    position: relative;
+    flex: none;
+    width: 44px;
+    height: 24px;
+    border-radius: 12px;
+    background: #4a4a4a;
+    transition: background 0.15s ease;
+}
+
+.theme-toggle-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #ffffff;
+    transition: transform 0.15s ease;
+}
+
+.theme-toggle input:checked + .theme-toggle-track {
+    background: #6e6e6e;
+}
+
+.theme-toggle input:checked + .theme-toggle-track .theme-toggle-thumb {
+    transform: translateX(20px);
+}
+
+.theme-toggle input:focus-visible + .theme-toggle-track {
+    outline: 2px solid #9e9e9e;
+    outline-offset: 2px;
+}
+
+/* Light mode palette, applied by the toggle in the file bar */
+body.light-mode {
+    background-color: #f0f0f0;
+    --page-bg: #f0f0f0;
+    color: #333333;
+}
+
+body.light-mode .container {
+    background-color: #ffffff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+body.light-mode .control-group {
+    background: #f8f9fa;
+}
+
+body.light-mode .control-row label {
+    color: #333333;
+}
+
+body.light-mode .value-display {
+    color: #333333;
+}
+
+body.light-mode input[type="range"] {
+    background-color: #dddddd;
+}
+/* --- Sample image thumbnails --- */
+.sample-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 20px;
+    overflow-x: auto;
+}
+
+.sample-thumb {
+    flex: none;
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    display: block;
+    border-radius: 4px;
+    border: 2px solid var(--page-bg);
+    background: #000000;
+    cursor: pointer;
+}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Psyblade's ASCII Art Converter</h1>
+        
+        <div class="control-group file-bar">
+            <input type="file" id="imageInput" accept="image/*">
+            <label class="theme-toggle" title="Switch between light and dark mode">
+                <span id="theme-label">Dark</span>
+                <input type="checkbox" id="theme-switch">
+                <span class="theme-toggle-track"><span class="theme-toggle-thumb"></span></span>
+            </label>
+        </div>
+
+        <div class="control-group sample-bar" id="sample-thumbs"></div>
+
+        <div class="controls">
+            <div class="control-group">
+                <h3>Image Settings</h3>
+                <div class="control-row">
+                    <label for="width-range">Width:</label>
+                    <input type="range" id="width-range" min="30" max="300" value="260">
+                    <span class="value-display" id="width-value">260</span>
+                </div>
+                <div class="control-row">
+                    <label for="brightness-range">Brightness:</label>
+                    <input type="range" id="brightness-range" min="-100" max="100" value="20">
+                    <span class="value-display" id="brightness-value">20</span>
+                </div>
+                <div class="control-row">
+                    <label for="contrast-range">Contrast:</label>
+                    <input type="range" id="contrast-range" min="-100" max="100" value="0">
+                    <span class="value-display" id="contrast-value">0</span>
+                </div>
+                <div class="control-row">
+                    <label for="saturation-range">Saturation:</label>
+                    <input type="range" id="saturation-range" min="-100" max="100" value="0">
+                    <span class="value-display" id="saturation-value">0</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>Display Settings</h3>
+                <div class="control-row">
+                    <label for="font-size-range">Font Size:</label>
+                    <input type="range" id="font-size-range" min="6" max="16" value="6">
+                    <span class="value-display" id="font-size-value">6</span>
+                </div>
+				
+                <!-- Character Set Dropdown -->
+                <div class="control-row">
+                    <label for="character-set">Character Set:</label>
+                    <select id="character-set">
+                        <option value="standard">Standard ( .:-=+*#%@)</option>
+						<option value="blocks">Blocks ( ░▒▓█)</option>
+                        <option value="solid">Solid (█)</option>
+                        <option value="circle">Round (●)</option>
+                        <option value="at">At (@)</option>
+                        <option value="dot">Dot (•)</option>
+                        <option value="ring">Ring (○)</option>
+                        <option value="zero" selected>Zero (0)</option>
+                        <option value="binary">Binary (01)</option>
+                    </select>
+                </div>
+                <div class="control-row">
+                    <button id="save-image">Save as Image</button>
+                    <button id="copy-text">Copy Text</button>
+                </div>
+            </div>
+        </div>
+
+        <pre id="ascii-art"></pre>
+    </div>
+
+    <script>
+		let ASCII_CHARS = '0';  // Default character set
+	
+	
+        const CHAR_SETS = {
+            standard: ' .:-=+*#%@',
+            blocks: ' ░▒▓█',
+            solid: '█',
+            circle: '●',
+            dot: '•',
+            ring: '○',
+            at: '@',
+            zero: '0',
+			binary: '01'
+        };
+        const asciiArt = document.getElementById('ascii-art');
+        const imageInput = document.getElementById('imageInput');
+        
+        // Input elements
+        const widthRange = document.getElementById('width-range');
+        const brightnessRange = document.getElementById('brightness-range');
+        const contrastRange = document.getElementById('contrast-range');
+        const saturationRange = document.getElementById('saturation-range');
+        var fontSizeRange = document.getElementById('font-size-range');
+        
+        // Value display elements
+        const widthValue = document.getElementById('width-value');
+        const brightnessValue = document.getElementById('brightness-value');
+        const contrastValue = document.getElementById('contrast-value');
+        const saturationValue = document.getElementById('saturation-value');
+        const fontSizeValue = document.getElementById('font-size-value');
+        
+        // Buttons
+        const invertColorsBtn = document.getElementById('invert-colors');
+        const saveImageBtn = document.getElementById('save-image');
+        const copyTextBtn = document.getElementById('copy-text');
+		
+		// Drop Down
+		const characterSetDropdown = document.getElementById('character-set');
+
+        let isInverted = false;
+        let currentImage = null;
+
+        // Update value displays
+        function updateValue(input, valueDisplay) {
+            if (input && valueDisplay) {
+				console.log (input.value, valueDisplay.innerHTML);
+				// console.log (document.getElementById(valueDisplay).textContent);
+				valueDisplay.innerHTML  = input.value;
+                // valueDisplay.textContent = input.value;
+            }
+        }
+
+        // Setup range input listeners
+        const rangeInputs = [
+            { input: widthRange, display: widthValue },
+            { input: brightnessRange, display: brightnessValue },
+            { input: contrastRange, display: contrastValue },
+            { input: saturationRange, display: saturationValue },
+            { input: fontSizeRange, display: fontSizeValue }
+        ];
+
+        rangeInputs.forEach(({ input, display }) => {
+            if (input && display) {
+                input.addEventListener('input', () => {
+                    updateValue(input, display);
+                    if (currentImage) {
+                        convertToAscii(currentImage);
+                    }
+                });
+            }
+        });
+
+        // Apply the markup defaults on load so the readouts, the rendered font
+        // size and the character set all agree with the inputs above.
+        rangeInputs.forEach(({ input, display }) => {
+            if (input && display) {
+                display.textContent = input.value;
+            }
+        });
+        if (fontSizeRange) {
+            asciiArt.style.fontSize = `${fontSizeRange.value}px`;
+        }
+        if (characterSetDropdown) {
+            ASCII_CHARS = CHAR_SETS[characterSetDropdown.value] || ASCII_CHARS;
+        }
+
+        // Font size handling
+        if (fontSizeRange) {
+            fontSizeRange.addEventListener('input', () => {
+                asciiArt.style.fontSize = `${fontSizeRange.value}px`;
+            });
+        }
+
+        // Invert colors
+        if (invertColorsBtn) {
+            invertColorsBtn.addEventListener('click', () => {
+                isInverted = !isInverted;
+                asciiArt.style.backgroundColor = isInverted ? 'white' : 'black';
+                if (currentImage) {
+                    convertToAscii(currentImage);
+                }
+            });
+        }
+
+        // Save as image
+        if (saveImageBtn) {
+            saveImageBtn.addEventListener('click', () => {
+                html2canvas(asciiArt).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = 'ascii-art.png';
+                    link.href = canvas.toDataURL();
+                    link.click();
+                });
+            });
+        }
+
+        // Copy text
+        if (copyTextBtn) {
+            copyTextBtn.addEventListener('click', () => {
+                const plainText = asciiArt.innerText;
+                navigator.clipboard.writeText(plainText)
+                    .then(() => alert('ASCII art copied to clipboard!'))
+                    .catch(err => console.error('Failed to copy:', err));
+            });
+        }
+
+        // Handle image upload
+        if (imageInput) {
+            imageInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            currentImage = img;
+                            convertToAscii(img);
+                        };
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+
+        function adjustColor(r, g, b) {
+            const brightness = parseInt(brightnessRange.value);
+            const contrast = parseInt(contrastRange.value);
+            const saturation = parseInt(saturationRange.value);
+
+            // Convert to HSL
+            let [h, s, l] = rgbToHsl(r, g, b);
+
+            // Apply adjustments
+            l = clamp(l + (brightness / 100), 0, 1);
+            s = clamp(s + (saturation / 100), 0, 1);
+
+            // Apply contrast
+            if (contrast > 0) {
+                l = l > 0.5 ? 
+                    clamp(l + (contrast / 200), 0, 1) : 
+                    clamp(l - (contrast / 200), 0, 1);
+            } else if (contrast < 0) {
+                l = clamp(0.5 + (l - 0.5) * (1 + contrast / 100), 0, 1);
+            }
+
+            // Convert back to RGB
+            const [adjustedR, adjustedG, adjustedB] = hslToRgb(h, s, l);
+            
+            return {
+                r: Math.round(adjustedR),
+                g: Math.round(adjustedG),
+                b: Math.round(adjustedB)
+            };
+        }
+
+function convertToAscii(img) {
+	var asciiArt = document.getElementById('ascii-art');
+    var widthRange = document.getElementById('width-range');
+    var fontSizeRange = document.getElementById('font-size-range');
+	
+	
+    var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d');
+
+    // Get ASCII art width from user input and calculate the height based on the image ratio
+    var asciiWidth = parseInt(widthRange.value);
+    var aspectRatio = img.height / img.width;
+    var asciiHeight = Math.floor(asciiWidth * aspectRatio * 0.5); // Adjusted for ASCII aspect ratio
+
+    // Set font family and size for measurements
+    var fontSize = parseInt(fontSizeRange.value, 10);
+	console.log(fontSize);
+    var fontFamily = 'monospace';
+    ctx.font = `${fontSize}px ${fontFamily}`;
+
+    // Measure character dimensions
+    // Size the box from the widest glyph in the active set: glyphs missing from the
+    // monospace font fall back to another font with a different advance width, so
+    // measuring '@' alone would let those rows overflow and get clipped.
+    var characterWidth = 0;
+    for (var gi = 0; gi < ASCII_CHARS.length; gi++) {
+        characterWidth = Math.max(characterWidth, ctx.measureText(ASCII_CHARS[gi]).width);
+    }
+    if (!characterWidth) {
+        characterWidth = ctx.measureText('@').width;
+    }
+	var characterHeight = fontSize; // Line height is generally the font size for monospace fonts
+
+    // Calculate final canvas dimensions based on character dimensions
+    canvas.width = Math.ceil(characterWidth * asciiWidth);
+    canvas.height = Math.ceil(characterHeight * asciiHeight);
+
+    // Draw the image to the canvas to get pixel data for ASCII conversion
+    ctx.drawImage(img, 0, 0, asciiWidth, asciiHeight);
+    var imageData;
+    try {
+        imageData = ctx.getImageData(0, 0, asciiWidth, asciiHeight);
+    } catch (err) {
+        asciiArt.textContent =
+            'Cannot read this image\'s pixels.\n\n' +
+            'The browser blocks canvas data for images loaded from disk (file://).\n' +
+            'Serve this folder over http instead, or use the Choose File button,\n' +
+            'which works either way.';
+        return;
+    }
+    var pixels = imageData.data;
+
+    let ascii = '';
+
+    for (let y = 0; y < asciiHeight; y++) {
+        for (let x = 0; x < asciiWidth; x++) {
+            const idx = (y * asciiWidth + x) * 4;
+            let r = pixels[idx];
+            let g = pixels[idx + 1];
+            let b = pixels[idx + 2];
+
+            const brightness = (r + g + b) / 3;
+            const charIdx = Math.round((brightness / 255) * (ASCII_CHARS.length - 1));
+            const adjustedColor = adjustColor(r, g, b);
+
+            if (isInverted) {
+                adjustedColor.r = 255 - adjustedColor.r;
+                adjustedColor.g = 255 - adjustedColor.g;
+                adjustedColor.b = 255 - adjustedColor.b;
+            }
+
+            ascii += `<span style="color: rgb(${adjustedColor.r},${adjustedColor.g},${adjustedColor.b}); font-family: ${fontFamily};">${ASCII_CHARS[charIdx]}</span>`;
+        }
+        ascii += '\n';
+    }
+
+    asciiArt.style.padding = '0';
+    asciiArt.style.margin = '0';
+    asciiArt.style.fontFamily = fontFamily;
+	asciiArt.style.width = canvas.width + 'px';
+    asciiArt.innerHTML = ascii;
+}
+
+        // Utility functions for color conversion
+        function rgbToHsl(r, g, b) {
+            r /= 255;
+            g /= 255;
+            b /= 255;
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            let h, s, l = (max + min) / 2;
+
+            if (max === min) {
+                h = s = 0;
+            } else {
+                const d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h /= 6;
+            }
+            return [h, s, l];
+        }
+
+        function hslToRgb(h, s, l) {
+            let r, g, b;
+
+            if (s === 0) {
+                r = g = b = l;
+            } else {
+                const hue2rgb = (p, q, t) => {
+                    if (t < 0) t += 1;
+                    if (t > 1) t -= 1;
+                    if (t < 1/6) return p + (q - p) * 6 * t;
+                    if (t < 1/2) return q;
+                    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                    return p;
+                };
+
+                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                const p = 2 * l - q;
+                r = hue2rgb(p, q, h + 1/3);
+                g = hue2rgb(p, q, h);
+                b = hue2rgb(p, q, h - 1/3);
+            }
+
+            return [r * 255, g * 255, b * 255];
+        }
+
+        function clamp(value, min, max) {
+            return Math.min(Math.max(value, min), max);
+        }
+		
+        
+        
+        // Update ASCII_CHARS based on dropdown selection
+        characterSetDropdown.addEventListener('change', () => {
+            ASCII_CHARS = CHAR_SETS[characterSetDropdown.value];
+            if (currentImage) {
+                convertToAscii(currentImage);
+            }
+        });
+
+        // Theme toggle in the file bar: unchecked = dark, checked = light
+        const themeSwitch = document.getElementById('theme-switch');
+        const themeLabel = document.getElementById('theme-label');
+        if (themeSwitch) {
+            const applyTheme = (isLight) => {
+                document.body.classList.toggle('light-mode', isLight);
+                if (themeLabel) {
+                    themeLabel.textContent = isLight ? 'Light' : 'Dark';
+                }
+            };
+            applyTheme(themeSwitch.checked);
+            themeSwitch.addEventListener('change', () => applyTheme(themeSwitch.checked));
+        }
+
+        // Sample image thumbnails from ./imgs/
+        const SAMPLES = ['gate.png', 'guard.png', 'horse.png', 'tower.png'];
+        const DEFAULT_SAMPLE = 'tower.png';
+        const sampleBar = document.getElementById('sample-thumbs');
+
+        // Loading via fetch -> blob -> object URL keeps the canvas readable. A plain
+        // URL-loaded <img> taints the canvas when the page is opened from disk
+        // (file://), which makes getImageData throw.
+        function loadSampleImage(file, thumbEl, skipFetch) {
+            const src = 'imgs/' + file;
+            const useIt = (img) => {
+                currentImage = img;
+                convertToAscii(img);
+                if (sampleBar) {
+                    Array.prototype.forEach.call(sampleBar.children, (el) => el.classList.remove('active'));
+                }
+                if (thumbEl) {
+                    thumbEl.classList.add('active');
+                }
+            };
+            const direct = () => {
+                const img = new Image();
+                img.onload = () => useIt(img);
+                img.onerror = () => { console.warn('Could not load ' + src); };
+                img.src = src;
+            };
+            if (skipFetch || typeof fetch !== 'function') {
+                direct();
+                return;
+            }
+            fetch(src)
+                .then((res) => {
+                    if (!res.ok) { throw new Error('HTTP ' + res.status); }
+                    return res.blob();
+                })
+                .then((blob) => {
+                    const img = new Image();
+                    img.onload = () => useIt(img);
+                    img.onerror = direct;
+                    img.src = URL.createObjectURL(blob);
+                })
+                .catch(direct);
+        }
+
+        if (sampleBar) {
+            SAMPLES.forEach((file) => {
+                const thumb = document.createElement('img');
+                thumb.className = 'sample-thumb';
+                thumb.src = 'imgs/' + file;
+                thumb.alt = file.replace(/\.[^.]+$/, '') + ' sample image';
+                thumb.title = 'Convert ' + file;
+                thumb.addEventListener('click', () => loadSampleImage(file, thumb));
+                sampleBar.appendChild(thumb);
+            });
+            const defaultIndex = SAMPLES.indexOf(DEFAULT_SAMPLE);
+            if (defaultIndex !== -1) {
+                loadSampleImage(DEFAULT_SAMPLE, sampleBar.children[defaultIndex]);
+            }
+        }
+    </script>
+
+    <!-- Add html2canvas for saving as image -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</div>
+</body>
+</html>

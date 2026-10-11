@@ -1,0 +1,12 @@
+# Build tooling
+node_modules/
+.npm-cache/
+
+# Build output (published to the gh-pages branch, not tracked on main)
+dist/
+
+# Local scratch / verification artifacts
+_*.html
+_*.py
+.edge-*/
+preview-*.png

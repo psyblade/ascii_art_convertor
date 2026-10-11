@@ -1,0 +1,14 @@
+﻿{
+  "name": "ascii-art-convertor-build",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Build tooling: minify + obfuscate the site into dist/",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "html-minifier-terser": "^7.2.0",
+    "javascript-obfuscator": "^4.1.1"
+  }
+}
